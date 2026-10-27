@@ -321,6 +321,18 @@ class Vault:
 # Reporting helpers
 # --------------------------------------------------------------------------- #
 
+def require_unique_names(files):
+    """Files are stored by base name, so two inputs called 1_720p.mkv in
+    different folders would collide. Stop instead of silently skipping one."""
+    seen = {}
+    for p in files:
+        name = Path(p).name
+        if name in seen:
+            raise SystemExit(f"two inputs share the name {name!r}:\n  {seen[name]}\n  {p}\n"
+                             "rename one (download_soccernet.py does this for you)")
+        seen[name] = p
+
+
 def mb(n):
     return f"{n / 1e6:,.1f} MB"
 
@@ -370,6 +382,7 @@ def print_totals(rows):
 # --------------------------------------------------------------------------- #
 
 def cmd_ingest(a):
+    require_unique_names(a.files)
     v = Vault(a.vault, a.chunker)
     for p in a.files:
         r = v.ingest(p)
@@ -406,6 +419,7 @@ def cmd_stats(a):
 
 
 def cmd_bench(a):
+    require_unique_names(a.files)
     work = Path(a.workdir or tempfile.mkdtemp(prefix="dedup-bench-"))
     specs = [f"fixed:{a.fixed_size}", f"cdc:{a.avg}"]
     sweep = [int(x) for x in a.sweep.split(",")] if a.sweep else []

@@ -33,6 +33,26 @@ python dedup.py shiftdemo matches/fake_a.mp4
 
 `bench` writes one full vault per chunker setting into a temp folder and deletes it afterwards, so you need free disk space of roughly (input size × number of settings). Use `--workdir DIR` to keep the vaults.
 
+## Real footage: SoccerNet broadcast matches
+
+[SoccerNet](https://www.soccer-net.org/) hosts full broadcast matches (one file per half) as a gated dataset on Hugging Face. One-time setup on your machine:
+
+1. Create a free Hugging Face account.
+2. While logged in, open `https://huggingface.co/datasets/SoccerNet/SoccerNet_raw_HQ` and request access. This means agreeing to SoccerNet's terms, so read them.
+3. Once access is granted: `pip install SoccerNet` and `hf auth login` (paste a read token from your Hugging Face settings).
+
+Then:
+
+```bash
+python download_soccernet.py --list                 # 100 test-split games, numbered
+python download_soccernet.py --games 2              # first 2 games, first half, 720p
+python download_soccernet.py --pick 3,17 --quality 224p   # specific games, much smaller files
+python make_clips.py matches/*.mkv --out clips --per-match 8 --duration 30 --control
+python dedup.py bench matches/*.mkv clips/* --sweep 4096,16384,32768 --csv results.csv
+```
+
+Files are renamed to e.g. `matches/2015-05-17_Manchester_United_1-1_Arsenal_h1_720p.mkv`. Every SoccerNet half is called `1_720p.mkv` in the original, so without renaming, files from different games would collide (both scripts refuse duplicate names). Full halves are large: start with 2 games and check your disk space.
+
 ## Tests
 
 ```bash

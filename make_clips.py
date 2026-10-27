@@ -97,6 +97,12 @@ def main():
     if not a.matches:
         ap.error("give at least one match file (or use --synthetic)")
 
+    stems = [Path(m).stem for m in a.matches]
+    dupes = sorted({s for s in stems if stems.count(s) > 1})
+    if dupes:
+        sys.exit(f"several matches are named {dupes}, so their clips would overwrite each other. "
+                 "Rename them first (download_soccernet.py gives SoccerNet files unique names).")
+
     rng = random.Random(a.seed)
     out_dir = Path(a.out)
     out_dir.mkdir(parents=True, exist_ok=True)
