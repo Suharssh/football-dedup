@@ -47,6 +47,23 @@ python dedup.py shiftdemo matches/fake_a.mp4
 
 `bench` writes one full vault per chunker setting into a temp folder and deletes it afterwards, so you need free disk space of roughly (input size × number of settings). Use `--workdir DIR` to keep the vaults.
 
+## Real footage: SoccerTrack (no approval wait)
+
+[SoccerTrack](https://github.com/AtomScott/SoccerTrack) is a research dataset of real soccer matches filmed with an 8K wide-angle camera and a 4K drone, as 30-second clips. It's on Kaggle at `kaggle.com/datasets/atomscott/soccertrack`; you need a free Kaggle account. Check the license shown on the Kaggle page before publishing results.
+
+1. On the Kaggle page, open the **Data** tab, browse to the wide-view (or top-view) `videos` folder, and download 6–10 `.mp4` files into a folder called `soccertrack/`. Consecutive files from the same recording join best.
+2. Join them into one longer "session" by stream copy, then cut highlights from it:
+
+```bash
+python make_clips.py soccertrack/*.mp4 --join matches/soccertrack_session.mp4
+python make_clips.py matches/soccertrack_session.mp4 --out clips --per-match 8 --duration 10 --control
+python dedup.py bench matches/soccertrack_session.mp4 soccertrack/*.mp4 clips/*
+```
+
+This tests two realistic cases at once: the original segments against the assembled recording, and highlight clips cut from it. On synthetic footage both deduplicate about 99% under CDC and 0% under fixed-size chunking. `--join` needs inputs with the same encoding settings (same camera); if ffmpeg complains, join files from one camera only.
+
+8K video is large: check file sizes on Kaggle and your free disk space first (`bench` stores everything twice, once per chunker). The drone (top-view) files are 4K and smaller.
+
 ## Real footage: SoccerNet broadcast matches
 
 [SoccerNet](https://www.soccer-net.org/) hosts full broadcast matches (one file per half) as a gated dataset on Hugging Face. One-time setup on your machine:

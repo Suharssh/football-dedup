@@ -10,6 +10,9 @@ chunking should not.
   # 8 random 30 s clips per match, plus one re-encoded control clip
   python make_clips.py matches/*.mp4 --out clips --per-match 8 --duration 30 --control
 
+  # short segments (e.g. SoccerTrack's 30 s files)? join them into one match first
+  python make_clips.py soccertrack/*.mp4 --join matches/soccertrack_session.mp4
+
   # no footage yet? make fake "matches" to smoke-test the pipeline
   # (use a different --seed for each, or they'll be identical files)
   python make_clips.py --synthetic matches/fake_a.mp4 --minutes 4 --seed 1
@@ -70,11 +73,34 @@ def cut_copy(src, start, dur, out):
 
 
 def cut_reencode(src, start, dur, out):
+    # scaled to 720p: the control only needs to share no bytes, and
+    # re-encoding 4K/8K footage at full size would take ages
     run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
          "-ss", f"{start:.2f}", "-i", str(src), "-t", f"{dur:.2f}",
-         "-map", "0:v:0", "-map", "0:a?",
+         "-map", "0:v:0", "-map", "0:a?", "-vf", "scale=-2:720",
          "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
          "-c:a", "aac", "-b:a", "128k", str(out)])
+
+
+def join_copy(files, out):
+    """Concatenate videos into one file without re-encoding (ffmpeg concat
+    demuxer + stream copy). The inputs must come from the same camera/encoder
+    settings, e.g. consecutive SoccerTrack segments."""
+    out = Path(out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    listing = out.with_name(out.stem + ".concat.txt")
+    with open(listing, "w", encoding="utf-8") as fh:
+        for f in files:
+            path = Path(f).resolve().as_posix().replace("'", "'\\''")
+            fh.write(f"file '{path}'\n")
+    try:
+        run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+             "-f", "concat", "-safe", "0", "-i", str(listing),
+             "-map", "0:v:0", "-map", "0:a?", "-c", "copy", str(out)])
+    finally:
+        listing.unlink(missing_ok=True)
+    print(f"joined {len(files)} files -> {out} "
+          f"({out.stat().st_size / 1e6:,.1f} MB, {duration(out):.0f}s)")
 
 
 def make_synthetic(out, minutes, seed):
@@ -104,11 +130,15 @@ def main():
     ap.add_argument("--control", action="store_true", help="also make one re-encoded clip")
     ap.add_argument("--synthetic", metavar="OUT", help="generate a fake match video and exit")
     ap.add_argument("--minutes", type=float, default=5.0, help="length of the synthetic match")
+    ap.add_argument("--join", metavar="OUT",
+                    help="concatenate the given videos into OUT by stream copy and exit "
+                         "(turns short segments, e.g. SoccerTrack's 30 s files, into one long match)")
     a = ap.parse_args()
 
     for tool in ("ffmpeg", "ffprobe"):
         if shutil.which(tool) is None:
-            sys.exit(f"{tool} not found on PATH (macOS: brew install ffmpeg)")
+            sys.exit(f"{tool} not found on PATH "
+                     "(Windows: winget install Gyan.FFmpeg, then reopen the terminal; macOS: brew install ffmpeg)")
 
     if a.synthetic:
         make_synthetic(a.synthetic, a.minutes, a.seed)
@@ -116,6 +146,12 @@ def main():
     if not a.matches:
         ap.error("give at least one match file (or use --synthetic)")
     a.matches = expand_globs(a.matches)
+
+    if a.join:
+        if Path(a.join).resolve() in {Path(m).resolve() for m in a.matches}:
+            sys.exit("--join output must not be one of the inputs")
+        join_copy(a.matches, a.join)
+        return
 
     stems = [Path(m).stem for m in a.matches]
     dupes = sorted({s for s in stems if stems.count(s) > 1})

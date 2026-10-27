@@ -455,10 +455,11 @@ def cmd_bench(a):
 
         names = list(results[specs[0]][0])
         print("\nPer file: share of each file that was ALREADY in the vault (higher = more dedup)")
-        print(f"{'file':<34}{'size':>12}{'fixed':>10}{'cdc':>10}")
+        w = max([34] + [len(n) + 2 for n in names])
+        print(f"{'file':<{w}}{'size':>12}{'fixed':>10}{'cdc':>10}")
         for n in names:
             f, c = results[specs[0]][0][n], results[specs[1]][0][n]
-            print(f"{n:<34}{mb(f['size']):>12}"
+            print(f"{n:<{w}}{mb(f['size']):>12}"
                   f"{pct(f['size'] - f['new'], f['size']):>10}{pct(c['size'] - c['new'], c['size']):>10}")
 
         rows = [(s, results[s][1]) for s in specs]
