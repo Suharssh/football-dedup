@@ -22,6 +22,7 @@ Only dependency: numpy.
 """
 import argparse
 import csv
+import glob
 import hashlib
 import os
 import shutil
@@ -201,12 +202,15 @@ class Vault:
         self.db = sqlite3.connect(self.root / "index.sqlite")
         self.db.executescript(SCHEMA)
         row = self.db.execute("SELECT value FROM meta WHERE key='chunker'").fetchone()
+        # close the database before refusing, so Windows can delete the folder
         if row is None:
             if chunker_spec is None:
+                self.db.close()
                 raise SystemExit(f"{path} is a new vault: pass --chunker")
             with self.db:
                 self.db.execute("INSERT INTO meta VALUES('chunker', ?)", (chunker_spec,))
         elif chunker_spec and chunker_spec != row[0]:
+            self.db.close()
             raise SystemExit(f"{path} was created with {row[0]}, not {chunker_spec}")
         self.chunker = make_chunker(chunker_spec or row[0])
         last = self.db.execute("SELECT MAX(pack) FROM chunks").fetchone()[0]
@@ -321,6 +325,24 @@ class Vault:
 # Reporting helpers
 # --------------------------------------------------------------------------- #
 
+def expand_globs(args):
+    """Expand patterns like clips/* ourselves. macOS/Linux shells do this
+    before Python starts; Windows PowerShell and cmd pass the text through."""
+    files = []
+    for arg in args:
+        if any(ch in arg for ch in "*?[") and not Path(arg).exists():
+            matches = sorted(glob.glob(arg))
+            if not matches:
+                raise SystemExit(f"no files match {arg!r}")
+            files.extend(matches)
+        else:
+            files.append(arg)
+    missing = [f for f in files if not Path(f).is_file()]
+    if missing:
+        raise SystemExit("not found (or not a file): " + ", ".join(missing))
+    return files
+
+
 def require_unique_names(files):
     """Files are stored by base name, so two inputs called 1_720p.mkv in
     different folders would collide. Stop instead of silently skipping one."""
@@ -382,6 +404,7 @@ def print_totals(rows):
 # --------------------------------------------------------------------------- #
 
 def cmd_ingest(a):
+    a.files = expand_globs(a.files)
     require_unique_names(a.files)
     v = Vault(a.vault, a.chunker)
     for p in a.files:
@@ -419,6 +442,7 @@ def cmd_stats(a):
 
 
 def cmd_bench(a):
+    a.files = expand_globs(a.files)
     require_unique_names(a.files)
     work = Path(a.workdir or tempfile.mkdtemp(prefix="dedup-bench-"))
     specs = [f"fixed:{a.fixed_size}", f"cdc:{a.avg}"]

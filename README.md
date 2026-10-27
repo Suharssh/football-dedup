@@ -6,12 +6,26 @@ The test case: full matches plus highlight clips cut from them with `ffmpeg -c c
 
 ## Setup
 
-```bash
-pip install numpy
-brew install ffmpeg        # or apt install ffmpeg
+Python 3.9+ and ffmpeg. The only Python dependency is numpy.
+
+**Windows (PowerShell):**
+
+```powershell
+winget install Python.Python.3.12
+winget install Gyan.FFmpeg
+# close and reopen PowerShell so the new PATH is picked up, then:
+py -m pip install -r requirements.txt
+ffmpeg -version          # should print a version, not "not recognized"
 ```
 
-Python 3.9+. No other dependencies.
+On Windows, use `py` wherever this README says `python`. Patterns like `clips/*` work in PowerShell too: the scripts expand them themselves.
+
+**macOS / Linux:**
+
+```bash
+pip install -r requirements.txt
+brew install ffmpeg        # or: sudo apt install ffmpeg
+```
 
 ## Quick start
 

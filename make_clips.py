@@ -21,6 +21,7 @@ deduplicate at ~0% under both chunkers. If it doesn't, something is wrong.
 Requires ffmpeg and ffprobe on PATH.
 """
 import argparse
+import glob
 import random
 import shutil
 import subprocess
@@ -28,8 +29,26 @@ import sys
 from pathlib import Path
 
 
+def expand_globs(args):
+    """Expand patterns like matches/*.mkv ourselves: Windows shells don't."""
+    files = []
+    for arg in args:
+        if any(ch in arg for ch in "*?[") and not Path(arg).exists():
+            found = sorted(glob.glob(arg))
+            if not found:
+                sys.exit(f"no files match {arg!r}")
+            files.extend(found)
+        else:
+            files.append(arg)
+    missing = [f for f in files if not Path(f).is_file()]
+    if missing:
+        sys.exit("not found (or not a file): " + ", ".join(missing))
+    return files
+
+
 def run(cmd):
-    r = subprocess.run(cmd, capture_output=True, text=True)
+    # explicit UTF-8 so ffmpeg messages can't crash decoding on Windows
+    r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     if r.returncode != 0:
         sys.exit(f"command failed: {' '.join(cmd)}\n{r.stderr.strip()}")
     return r.stdout
@@ -96,6 +115,7 @@ def main():
         return
     if not a.matches:
         ap.error("give at least one match file (or use --synthetic)")
+    a.matches = expand_globs(a.matches)
 
     stems = [Path(m).stem for m in a.matches]
     dupes = sorted({s for s in stems if stems.count(s) > 1})
@@ -129,7 +149,8 @@ def main():
         print(f"{out.name:<40} from {start:7.1f}s  ({out.stat().st_size / 1e6:6.1f} MB)  re-encoded")
 
     print(f"\n{len(made)} clips in {out_dir}/")
-    print(f"next: python dedup.py bench {' '.join(a.matches)} {out_dir}/*")
+    quoted = " ".join(f'"{m}"' for m in a.matches)
+    print(f'next: python dedup.py bench {quoted} "{out_dir}/*"')
 
 
 if __name__ == "__main__":
