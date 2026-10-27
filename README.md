@@ -49,6 +49,8 @@ python dedup.py shiftdemo matches/fake_a.mp4
 
 ## Real footage: SoccerTrack (no approval wait)
 
+**On Windows, follow the step-by-step guide in [SOCCERTRACK_WINDOWS.md](SOCCERTRACK_WINDOWS.md).**
+
 [SoccerTrack](https://github.com/AtomScott/SoccerTrack) is a research dataset of real soccer matches filmed with an 8K wide-angle camera and a 4K drone, as 30-second clips. It's on Kaggle at `kaggle.com/datasets/atomscott/soccertrack`; you need a free Kaggle account. Check the license shown on the Kaggle page before publishing results.
 
 1. On the Kaggle page, open the **Data** tab, browse to the wide-view (or top-view) `videos` folder, and download 6–10 `.mp4` files into a folder called `soccertrack/`. Consecutive files from the same recording join best.
