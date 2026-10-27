@@ -1,0 +1,16 @@
+# footage and generated data (large, and you may not have rights to share it)
+matches/
+clips/
+*.mp4
+*.mkv
+*.mov
+vault*/
+results*.csv
+restored*
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.DS_Store
